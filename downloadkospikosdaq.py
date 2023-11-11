@@ -18,6 +18,21 @@ from zipfile import ZipFile
 # print(df)
 
 # 한국거래소에 상장된 종목의 가격 데이터 가져오기
+def help():
+    print("update_code(): 주식 코드 업데이트 후 엑셀로 저장")
+    print("load_codeNname(): 주식 코드 가져오기 - df = load_codeNname()")
+    print("download_stock_data(): 2013년부터 모든 주식 데이터 저장 - stock.db 파일")
+    print("get_test_data(): 테스트 데이터 추출")
+    print("get_min_price_last_100_days(price_list): 100일 최저가 구하기")
+    print("get_max_price_last_100_days(price_list): 100일 최고가 구하기")
+    print("crossover(data1, data2): data1이 data2를 위로 뚫고 올라갈 때, 데이터프레임 형식의 데이터를 받는다.")
+    print("crossunder(data1, data2): data1이 data2를 아래로 뚫고 내려갈 때, 데이터프레임 형식의 데이터를 받는다.")
+    print("pivothigh(data, pre_period, next_period): 피봇하이를 구한다. True/False 리스트 반환")
+    print("pivotlow(data, pre_period, next_period): 피봇로우를 구한다. True/False 리스트 반환")
+    print("percentrank(source, length): 소스는 데이터프레임을 받는다. 주어진 시리즈의 현재값에 대해 더 작거나 같은 값의 퍼센트(봉 개수 기준임)")
+    print("dummy_data(): 더미데이터 생성 형식은 데이터프레임")
+    print("load_last_data(): 가장 최근 주식데이터 하나씩만 로드")
+    print("get_today_data(): 오늘 주식 다운로드")
 
 
 def update_code():      # 주식 코드 다운로드
@@ -28,11 +43,16 @@ def update_code():      # 주식 코드 다운로드
     stocks_data = pd.concat([kospi_stocks, kosdaq_stocks], ignore_index=True)       # 코스피, 코스닥 합치기
     stock_code_name = stocks_data[['Name', 'Code']]
     
+    # 스팩, 중국 기업 제거
+    condition = stock_code_name['Name'].str.contains('스팩|헝셩|오가닉티|글로벌에스엠|GRT|로스웰|윙입|피델릭스|이스트아시아홀딩|씨케이에이치|골든센츄리|크리스탈신소재|컬러레이', na=False)
+    stock_code_name = stock_code_name[~condition]
+
     stock_code_name.to_excel('code_name.xlsx', sheet_name='코드데이터', index=False)
     
     print("주식 코드 로드 완료")
     
 def load_codeNname():        # 주식 코드 가져오기
+    update_code()
     df = pd.read_excel('code_name.xlsx')
     return df
     
@@ -49,7 +69,6 @@ def download_stock_data():
     for i, stock_code in enumerate(codes):
         df = pdr.naver.NaverDailyReader(stock_code, start='2013-01-01').read()       
         
-
         stock_name = names[i]
 
         total_stock_count = len(codes)
@@ -224,7 +243,7 @@ def dummy_data():
 # df['rank'] = df['close'].rank(ascending=False)  순위
 
 
-def load_last_data():       # 가장 최근 주식데이터 하나만 로드
+def load_last_data():       # 가장 최근 주식데이터 하나씩만 로드
     
     code_name = pd.read_excel('code_name.xlsx')
     names = code_name['Name']    
@@ -256,6 +275,7 @@ def get_today_data():       # 오늘 주식 다운로드
     
     yesterday = datetime.datetime.now()- datetime.timedelta(days=4)
     yesterday = yesterday.strftime("%Y-%m-%d")
+    
     for i, stock_code in enumerate(codes):
         new_df = pdr.naver.NaverDailyReader(stock_code, start=yesterday).read()
         
@@ -264,9 +284,15 @@ def get_today_data():       # 오늘 주식 다운로드
         print(f'{i+1}/{total_stock_count} : {stock_name}')
         new_df[['Open', 'High', 'Low', 'Close', 'Volume']] = new_df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)       # 데이터를 숫자형태로 변경
         # 한열은 이런식으로 가능하다. df['a'] = pd.to_numeric(df['a'])
-        
-        new_df['Change'] = new_df['Close'].diff()
-        new_df['Change_R'] = round(new_df['Close'].pct_change() * 100, 2)
+        if len(new_df['Open']) <= 1:
+            print("상장")
+            new_df['Change'] = 0
+            new_df['Change_R'] = 0            
+        else:
+            new_df['Change'] = new_df['Close'].diff()
+            new_df['Change_R'] = round(new_df['Close'].pct_change() * 100, 2)
+            
+
         new_df['Name'] = stock_name
         new_df = new_df.tail(1)
         df = pd.concat([df, new_df], ignore_index=True)
@@ -282,18 +308,21 @@ def get_today_data():       # 오늘 주식 다운로드
 
 
 def test():
+    update_code()
+    # help()
     # df = get_today_data()
+    # df.to_excel('test.xlsx')
     # # download_stock_data()
     # df = load_last_data()    
-    df = get_test_data()    
-    close = df['Close']
+    # df = get_test_data()    
+    # close = df['Close']
     
-    a = pivothigh(close, 5, 5)
-    df2 = pd.DataFrame()
-    df2['Date'] = df['Date']
-    df2['close'] = close
-    df2['pivothigh'] = a
-    df2.to_excel('test5.xlsx')
+    # a = pivothigh(close, 5, 5)
+    # df2 = pd.DataFrame()
+    # df2['Date'] = df['Date']
+    # df2['close'] = close
+    # df2['pivothigh'] = a
+    # df2.to_excel('test5.xlsx')
     
     # # high = df['High']
     # # df['yday_close'] = close.shift()
