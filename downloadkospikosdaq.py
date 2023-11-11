@@ -41,7 +41,7 @@ def update_code():      # 주식 코드 다운로드
     kosdaq_stocks = fdr.StockListing('kosdaq')
 
     stocks_data = pd.concat([kospi_stocks, kosdaq_stocks], ignore_index=True)       # 코스피, 코스닥 합치기
-    stock_code_name = stocks_data[['Name', 'Code']]
+    stock_code_name = stocks_data[['Name', 'Code']]    
     
     # 스팩, 중국 기업 제거
     condition = stock_code_name['Name'].str.contains('스팩|헝셩|오가닉티|글로벌에스엠|GRT|로스웰|윙입|피델릭스|이스트아시아홀딩|씨케이에이치|골든센츄리|크리스탈신소재|컬러레이', na=False)
@@ -54,6 +54,10 @@ def update_code():      # 주식 코드 다운로드
 def load_codeNname():        # 주식 코드 가져오기
     update_code()
     df = pd.read_excel('code_name.xlsx')
+    thema = pd.read_excel('smallcapthema.xlsx', sheet_name= 'thema')
+    thema['Code'] = thema['Code'].astype(str)      # 데이터 타입 변경
+
+    df = pd.merge(df, thema, on='Code', how='left')
     return df
     
 
@@ -273,6 +277,7 @@ def get_today_data():       # 오늘 주식 다운로드
     codes = code_data['Code']
     names = code_data['Name']
     
+    
     yesterday = datetime.datetime.now()- datetime.timedelta(days=4)
     yesterday = yesterday.strftime("%Y-%m-%d")
     
@@ -293,12 +298,13 @@ def get_today_data():       # 오늘 주식 다운로드
             new_df['Change_R'] = round(new_df['Close'].pct_change() * 100, 2)
             
 
-        new_df['Name'] = stock_name
+        new_df['Name'] = stock_name        
         new_df = new_df.tail(1)
         df = pd.concat([df, new_df], ignore_index=True)
 
     df['Change_rank'] = df['Change_R'].rank(ascending=False)    
     df = df.sort_values(by='Change_rank', ascending=True)      # 오름차순 정렬
+    df['Thema'] = code_data['Thema']
     end_time = datetime.datetime.now()
     time = end_time -start_time
     print(f'걸린시간 = {time}')
@@ -308,10 +314,13 @@ def get_today_data():       # 오늘 주식 다운로드
 
 
 def test():
-    update_code()
+    # update_code()
     # help()
-    # df = get_today_data()
-    # df.to_excel('test.xlsx')
+    df = get_today_data()
+    df.to_excel('test.xlsx')
+    # df = load_codeNname()
+    
+
     # # download_stock_data()
     # df = load_last_data()    
     # df = get_test_data()    
